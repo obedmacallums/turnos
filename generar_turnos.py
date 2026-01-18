@@ -170,10 +170,11 @@ def obtener_familiares(nombre: str, grupos: dict, diacono_grupo: dict) -> list:
 
 
 def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
-    """Asigna los diáconos de forma equitativa en tres fases:
+    """Asigna los diáconos de forma equitativa en cuatro fases:
     1. Abridores de Sábados
-    2. Abridores de Miércoles
-    3. Personal de apoyo y familias
+    2. Familiares de abridores de Sábado
+    3. Abridores de Miércoles (prioridad: los que NO abren sábado)
+    4. Completar Sábados con resto de diáconos (balanceo equitativo)
     """
     random.seed(año * 100 + mes)
     rng = random.Random(año * 100 + mes)
@@ -206,12 +207,21 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
 
     def puede_asignar_sabado(nombre):
         if nombre in max_turnos_sab:
-            return conteo_sabados[nombre] < max_turnos_sab[nombre]
+            max_val = max_turnos_sab[nombre]
+            # 0 o None = sin límite
+            if max_val is None or max_val == 0:
+                return True
+            return conteo_sabados[nombre] < max_val
         return True
+
+    fechas_sabado = [f for f, d in fechas if d == 5]
+    fechas_miercoles = [f for f, d in fechas if d == 2]
+
+    # Set de abridores de sábado para verificación rápida
+    set_abre_sabado = set(abre_sabado)
 
     # --- FASE 1: Abridores de Sábados ---
     idx_sabado = 0
-    fechas_sabado = [f for f, d in fechas if d == 5]
     for fecha in fechas_sabado:
         quien_abre = None
         intentos = 0
@@ -234,14 +244,53 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
         conteo_sabados[quien_abre] += 1
         pool_pendientes.discard(quien_abre)
 
-    # --- FASE 2: Abridores de Miércoles ---
+    # --- FASE 2: Familiares de Abridores de Sábado ---
+    for fecha in fechas_sabado:
+        t = turnos_dict[fecha]
+        abridor = t["abre"]
+        asignados_dia = [abridor]
+
+        for familiar in obtener_familiares(abridor, grupos, diacono_grupo):
+            # NUEVO: Verificar que no sea abridor de sábado (para no tener 2 abridores)
+            if (
+                familiar not in asignados_dia
+                and familiar not in set_abre_sabado
+                and puede_asignar_sabado(familiar)
+                and not tiene_excepcion(
+                    familiar, fecha, excepciones, grupos, diacono_grupo
+                )
+            ):
+                asignados_dia.append(familiar)
+                conteo[familiar] += 1
+                conteo_sabados[familiar] += 1
+                pool_pendientes.discard(familiar)
+
+        t["adicionales"] = asignados_dia[1:]
+
+    # --- FASE 3: Abridores de Miércoles ---
+    # Priorizar los que NO abren sábado
+    candidatos_miercoles_prioritarios = [
+        d for d in abre_miercoles if d not in set_abre_sabado
+    ]
+    candidatos_miercoles_fallback = [
+        d for d in abre_miercoles if d in set_abre_sabado
+    ]
+    rng.shuffle(candidatos_miercoles_prioritarios)
+    rng.shuffle(candidatos_miercoles_fallback)
+
+    # Combinar: prioritarios primero, fallback después
+    candidatos_miercoles_ordenados = (
+        candidatos_miercoles_prioritarios + candidatos_miercoles_fallback
+    )
+
     idx_miercoles = 0
-    fechas_miercoles = [f for f, d in fechas if d == 2]
     for fecha in fechas_miercoles:
         quien_abre = None
         intentos = 0
-        while intentos < len(abre_miercoles):
-            candidato = abre_miercoles[(idx_miercoles + intentos) % len(abre_miercoles)]
+        while intentos < len(candidatos_miercoles_ordenados):
+            candidato = candidatos_miercoles_ordenados[
+                (idx_miercoles + intentos) % len(candidatos_miercoles_ordenados)
+            ]
             if not tiene_excepcion(
                 candidato, fecha, excepciones, grupos, diacono_grupo
             ):
@@ -251,114 +300,175 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
             intentos += 1
 
         if quien_abre is None:
-            quien_abre = abre_miercoles[idx_miercoles % len(abre_miercoles)]
+            quien_abre = candidatos_miercoles_ordenados[
+                idx_miercoles % len(candidatos_miercoles_ordenados)
+            ]
             idx_miercoles += 1
 
         turnos_dict[fecha]["abre"] = quien_abre
         conteo[quien_abre] += 1
         pool_pendientes.discard(quien_abre)
 
-    # --- FASE 3: Personal de apoyo (Sábados) ---
+    # --- FASE 4: Completar Sábados (con balanceo equitativo) ---
+    # Primero, procesar preferencias
     for fecha in fechas_sabado:
         t = turnos_dict[fecha]
-        asignados_dia = [t["abre"]]
+        asignados_dia = [t["abre"]] + t["adicionales"]
 
-        # 3a. Familiares del que abre
-        for familiar in obtener_familiares(t["abre"], grupos, diacono_grupo):
-            if familiar not in asignados_dia and puede_asignar_sabado(familiar):
-                asignados_dia.append(familiar)
-                conteo[familiar] += 1
-                conteo_sabados[familiar] += 1
-                pool_pendientes.discard(familiar)
-
-        # 3b. Preferencias
         for nombre, fechas_pref in preferencias.items():
-            if (
-                fecha in fechas_pref
-                and nombre not in asignados_dia
-                and puede_asignar_sabado(nombre)
-            ):
+            if fecha in fechas_pref and nombre not in asignados_dia:
+                # Verificar que no sea abridor de sábado (restricción de separar abridores)
+                if nombre in set_abre_sabado:
+                    continue
+                if not puede_asignar_sabado(nombre):
+                    continue
+                if tiene_excepcion(nombre, fecha, excepciones, grupos, diacono_grupo):
+                    continue
+
                 asignados_dia.append(nombre)
                 conteo[nombre] += 1
                 conteo_sabados[nombre] += 1
                 pool_pendientes.discard(nombre)
-                # Familiares del de la preferencia
+
+                # Familiares del de la preferencia (que no sean abridores)
                 for familiar in obtener_familiares(nombre, grupos, diacono_grupo):
-                    if familiar not in asignados_dia and puede_asignar_sabado(familiar):
+                    if (
+                        familiar not in asignados_dia
+                        and familiar not in set_abre_sabado
+                        and puede_asignar_sabado(familiar)
+                        and not tiene_excepcion(
+                            familiar, fecha, excepciones, grupos, diacono_grupo
+                        )
+                    ):
                         asignados_dia.append(familiar)
                         conteo[familiar] += 1
                         conteo_sabados[familiar] += 1
                         pool_pendientes.discard(familiar)
 
-        # 3c. Completar hasta 3 adicionales (4 personas total)
-        adicionales_necesarios = 3 - (len(asignados_dia) - 1)
-        if adicionales_necesarios > 0:
-            # Candidatos: Priorizar los que NO abren sábados para no gastar "abridores"
-            # Pero si son de la pool de pendientes (0 turnos), incluirlos
-            pendientes_lista = [
-                d
-                for d in pool_pendientes
-                if d not in asignados_dia
-                and d not in diaconos["abre_sabado"]
-                and not tiene_excepcion(d, fecha, excepciones, grupos, diacono_grupo)
-                and puede_asignar_sabado(d)
-            ]
-            rng.shuffle(pendientes_lista)
-
-            otros = [
-                d
-                for d in diaconos["todos"]
-                if d not in asignados_dia
-                and d not in pool_pendientes
-                and d not in diaconos["abre_sabado"]
-                and not tiene_excepcion(d, fecha, excepciones, grupos, diacono_grupo)
-                and puede_asignar_sabado(d)
-            ]
-            rng.shuffle(otros)
-
-            candidatos = pendientes_lista + otros
-
-            # Fallback: incluir abridores si faltan personas
-            if len(candidatos) < adicionales_necesarios:
-                fallback = [
-                    d
-                    for d in diaconos["abre_sabado"]
-                    if d not in asignados_dia
-                    and not tiene_excepcion(
-                        d, fecha, excepciones, grupos, diacono_grupo
-                    )
-                    and puede_asignar_sabado(d)
-                ]
-                rng.shuffle(fallback)
-                candidatos.extend(fallback)
-
-            agregados = 0
-            idx_c = 0
-            while agregados < adicionales_necesarios and idx_c < len(candidatos):
-                c = candidatos[idx_c]
-                idx_c += 1
-                if c not in asignados_dia:
-                    asignados_dia.append(c)
-                    conteo[c] += 1
-                    conteo_sabados[c] += 1
-                    pool_pendientes.discard(c)
-                    agregados += 1
-                    # Familiares
-                    for familiar in obtener_familiares(c, grupos, diacono_grupo):
-                        if familiar not in asignados_dia and puede_asignar_sabado(
-                            familiar
-                        ):
-                            asignados_dia.append(familiar)
-                            conteo[familiar] += 1
-                            conteo_sabados[familiar] += 1
-                            pool_pendientes.discard(familiar)
-
         t["adicionales"] = asignados_dia[1:]
+
+    # Calcular distribución equitativa
+    num_sabados = len(fechas_sabado)
+    # Candidatos válidos para sábados: todos los que NO son abridores de sábado
+    candidatos_validos = [
+        d for d in diaconos["todos"] if d not in set_abre_sabado
+    ]
+
+    # Contar cuántas asignaciones adicionales tenemos actualmente
+    total_adicionales_actual = sum(
+        len(turnos_dict[f]["adicionales"]) for f in fechas_sabado
+    )
+
+    # Calcular cuántas personas adicionales podemos asignar
+    # (los que aún no tienen turno o tienen menos turnos)
+    candidatos_restantes = [
+        d
+        for d in candidatos_validos
+        if d not in set_abre_sabado and puede_asignar_sabado(d)
+    ]
+
+    # Calcular personas objetivo por sábado para distribución equitativa
+    # Total de personas disponibles / número de sábados
+    personas_ya_asignadas = sum(
+        1 + len(turnos_dict[f]["adicionales"]) for f in fechas_sabado
+    )
+
+    # Distribuir equitativamente: asignar al sábado con menos personas
+    # Prioridad: diáconos sin turno primero
+    diaconos_sin_turno = [d for d in candidatos_validos if conteo[d] == 0]
+    diaconos_con_turno = [
+        d
+        for d in candidatos_validos
+        if conteo[d] > 0 and d not in set_abre_sabado
+    ]
+    rng.shuffle(diaconos_sin_turno)
+    rng.shuffle(diaconos_con_turno)
+
+    # Asignar primero los que no tienen turno
+    for candidato in diaconos_sin_turno:
+        if not puede_asignar_sabado(candidato):
+            continue
+
+        # Encontrar el sábado con menos personas donde pueda ser asignado
+        sabados_disponibles = [
+            f
+            for f in fechas_sabado
+            if not tiene_excepcion(
+                candidato, f, excepciones, grupos, diacono_grupo
+            )
+            and candidato not in turnos_dict[f]["adicionales"]
+            and candidato != turnos_dict[f]["abre"]
+        ]
+
+        if sabados_disponibles:
+            sabado_menor = min(
+                sabados_disponibles,
+                key=lambda f: len(turnos_dict[f]["adicionales"]),
+            )
+            turnos_dict[sabado_menor]["adicionales"].append(candidato)
+            conteo[candidato] += 1
+            conteo_sabados[candidato] += 1
+            pool_pendientes.discard(candidato)
+
+            # Incluir familiares (que no sean abridores)
+            for familiar in obtener_familiares(candidato, grupos, diacono_grupo):
+                if (
+                    familiar not in turnos_dict[sabado_menor]["adicionales"]
+                    and familiar != turnos_dict[sabado_menor]["abre"]
+                    and familiar not in set_abre_sabado
+                    and puede_asignar_sabado(familiar)
+                    and not tiene_excepcion(
+                        familiar, sabado_menor, excepciones, grupos, diacono_grupo
+                    )
+                ):
+                    turnos_dict[sabado_menor]["adicionales"].append(familiar)
+                    conteo[familiar] += 1
+                    conteo_sabados[familiar] += 1
+                    pool_pendientes.discard(familiar)
+
+    # Luego distribuir el resto para balancear
+    for candidato in diaconos_con_turno:
+        if not puede_asignar_sabado(candidato):
+            continue
+
+        # Encontrar el sábado con menos personas
+        sabados_disponibles = [
+            f
+            for f in fechas_sabado
+            if not tiene_excepcion(
+                candidato, f, excepciones, grupos, diacono_grupo
+            )
+            and candidato not in turnos_dict[f]["adicionales"]
+            and candidato != turnos_dict[f]["abre"]
+        ]
+
+        if sabados_disponibles:
+            # Calcular el promedio actual de personas por sábado
+            personas_por_sabado = [
+                1 + len(turnos_dict[f]["adicionales"]) for f in fechas_sabado
+            ]
+            min_personas = min(personas_por_sabado)
+            max_personas = max(personas_por_sabado)
+
+            # Solo asignar si ayuda a balancear (diferencia > 1)
+            if max_personas - min_personas > 1:
+                sabado_menor = min(
+                    sabados_disponibles,
+                    key=lambda f: len(turnos_dict[f]["adicionales"]),
+                )
+                if (
+                    1 + len(turnos_dict[sabado_menor]["adicionales"])
+                    < max_personas
+                ):
+                    turnos_dict[sabado_menor]["adicionales"].append(candidato)
+                    conteo[candidato] += 1
+                    conteo_sabados[candidato] += 1
+                    pool_pendientes.discard(candidato)
 
     # --- Verificación final (Faltantes) ---
     faltantes = [d for d, c in conteo.items() if c == 0]
     if faltantes:
-        turnos_sabado = [turnos_dict[f] for f, d in fechas if d == 5]
+        turnos_sabado = [turnos_dict[f] for f in fechas_sabado]
         for f in faltantes:
             disponibles = [
                 t

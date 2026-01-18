@@ -37,3 +37,6 @@ MANIFEST
 
 # Vite
 *.local
+
+# Ruff
+.ruff_cache/
