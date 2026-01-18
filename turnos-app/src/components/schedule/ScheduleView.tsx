@@ -2,6 +2,7 @@ import { useScheduleStore } from '../../store/scheduleStore';
 import { MESES } from '../../types';
 import { TurnoCard } from './TurnoCard';
 import { ExportButton } from './ExportButton';
+import { ExportPdfButton } from './ExportPdfButton';
 import {
   Table,
   TableBody,
@@ -43,7 +44,10 @@ export function ScheduleView() {
         <h2 className="text-2xl font-bold">
           Turnos {nombreMes} {año}
         </h2>
-        <ExportButton schedule={currentSchedule} />
+        <div className="flex gap-2">
+          <ExportButton schedule={currentSchedule} />
+          <ExportPdfButton schedule={currentSchedule} />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
