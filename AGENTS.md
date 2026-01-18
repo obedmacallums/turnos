@@ -1,1 +1,1 @@
-lee CLAUDE.md for context.
+read CLAUDE.md for context.
