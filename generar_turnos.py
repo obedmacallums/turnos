@@ -170,21 +170,33 @@ def obtener_familiares(nombre: str, grupos: dict, diacono_grupo: dict) -> list:
 
 
 def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
-    """Asigna los diáconos de forma equitativa, garantizando participación de todos."""
+    """Asigna los diáconos de forma equitativa en tres fases:
+    1. Abridores de Sábados
+    2. Abridores de Miércoles
+    3. Personal de apoyo y familias
+    """
     random.seed(año * 100 + mes)
+    rng = random.Random(año * 100 + mes)
 
-    turnos = []
+    # Inicializar estructuras
     conteo = {d: 0 for d in diaconos["todos"]}
     conteo_sabados = {d: 0 for d in diaconos["todos"]}
-
-    # Pool de pendientes (diáconos que aún no tienen turno este mes)
     pool_pendientes = set(diaconos["todos"])
 
-    # Copiar y mezclar listas
+    # Preparar turnos vacíos
+    turnos_dict = {}
+    for fecha, dia_semana in fechas:
+        turnos_dict[fecha] = {
+            "fecha": fecha,
+            "dia_semana": dia_semana,
+            "abre": None,
+            "adicionales": [],
+        }
+
     abre_sabado = diaconos["abre_sabado"].copy()
     abre_miercoles = diaconos["abre_miercoles"].copy()
-    random.shuffle(abre_sabado)
-    random.shuffle(abre_miercoles)
+    rng.shuffle(abre_sabado)
+    rng.shuffle(abre_miercoles)
 
     grupos = diaconos["grupos"]
     diacono_grupo = diaconos["diacono_grupo"]
@@ -193,73 +205,96 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
     max_turnos_sab = diaconos["max_turnos_sab"]
 
     def puede_asignar_sabado(nombre):
-        """Verifica si el diácono puede recibir más turnos los SÁBADOS."""
         if nombre in max_turnos_sab:
             return conteo_sabados[nombre] < max_turnos_sab[nombre]
         return True
 
+    # --- FASE 1: Abridores de Sábados ---
     idx_sabado = 0
+    fechas_sabado = [f for f, d in fechas if d == 5]
+    for fecha in fechas_sabado:
+        quien_abre = None
+        intentos = 0
+        while intentos < len(abre_sabado):
+            candidato = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
+            if not tiene_excepcion(
+                candidato, fecha, excepciones, grupos, diacono_grupo
+            ) and puede_asignar_sabado(candidato):
+                quien_abre = candidato
+                idx_sabado += intentos + 1
+                break
+            intentos += 1
+
+        if quien_abre is None:
+            quien_abre = abre_sabado[idx_sabado % len(abre_sabado)]
+            idx_sabado += 1
+
+        turnos_dict[fecha]["abre"] = quien_abre
+        conteo[quien_abre] += 1
+        conteo_sabados[quien_abre] += 1
+        pool_pendientes.discard(quien_abre)
+
+    # --- FASE 2: Abridores de Miércoles ---
     idx_miercoles = 0
+    fechas_miercoles = [f for f, d in fechas if d == 2]
+    for fecha in fechas_miercoles:
+        quien_abre = None
+        intentos = 0
+        while intentos < len(abre_miercoles):
+            candidato = abre_miercoles[(idx_miercoles + intentos) % len(abre_miercoles)]
+            if not tiene_excepcion(
+                candidato, fecha, excepciones, grupos, diacono_grupo
+            ):
+                quien_abre = candidato
+                idx_miercoles += intentos + 1
+                break
+            intentos += 1
 
-    for fecha, dia_semana in fechas:
-        if dia_semana == 5:  # Sábado
-            # Buscar quien abre que no tenga excepción y no haya alcanzado su máximo de sábados
-            quien_abre = None
-            intentos = 0
-            while intentos < len(abre_sabado):
-                candidato_abre = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
-                if not tiene_excepcion(
-                    candidato_abre, fecha, excepciones, grupos, diacono_grupo
-                ) and puede_asignar_sabado(candidato_abre):
-                    quien_abre = candidato_abre
-                    idx_sabado += intentos + 1
-                    break
-                intentos += 1
+        if quien_abre is None:
+            quien_abre = abre_miercoles[idx_miercoles % len(abre_miercoles)]
+            idx_miercoles += 1
 
-            if quien_abre is None:
-                # Todos tienen excepción o alcanzaron máximo, usar el primero
-                quien_abre = abre_sabado[idx_sabado % len(abre_sabado)]
-                idx_sabado += 1
+        turnos_dict[fecha]["abre"] = quien_abre
+        conteo[quien_abre] += 1
+        pool_pendientes.discard(quien_abre)
 
-            asignados_dia = [quien_abre]
-            conteo[quien_abre] += 1
-            conteo_sabados[quien_abre] += 1
-            pool_pendientes.discard(quien_abre)
+    # --- FASE 3: Personal de apoyo (Sábados) ---
+    for fecha in fechas_sabado:
+        t = turnos_dict[fecha]
+        asignados_dia = [t["abre"]]
 
-            # Agregar familiar de quien abre (si puede recibir más turnos sábado)
-            for familiar in obtener_familiares(quien_abre, grupos, diacono_grupo):
-                if familiar not in asignados_dia and puede_asignar_sabado(familiar):
-                    asignados_dia.append(familiar)
-                    conteo[familiar] += 1
-                    conteo_sabados[familiar] += 1
-                    pool_pendientes.discard(familiar)
+        # 3a. Familiares del que abre
+        for familiar in obtener_familiares(t["abre"], grupos, diacono_grupo):
+            if familiar not in asignados_dia and puede_asignar_sabado(familiar):
+                asignados_dia.append(familiar)
+                conteo[familiar] += 1
+                conteo_sabados[familiar] += 1
+                pool_pendientes.discard(familiar)
 
-            # Agregar diáconos con preferencia para esta fecha (si pueden sábados)
-            for nombre, fechas_pref in preferencias.items():
-                if (
-                    fecha in fechas_pref
-                    and nombre not in asignados_dia
-                    and puede_asignar_sabado(nombre)
-                ):
-                    asignados_dia.append(nombre)
-                    conteo[nombre] += 1
-                    conteo_sabados[nombre] += 1
-                    pool_pendientes.discard(nombre)
-                    # Agregar familiares del diácono con preferencia
-                    for familiar in obtener_familiares(nombre, grupos, diacono_grupo):
-                        if familiar not in asignados_dia and puede_asignar_sabado(
-                            familiar
-                        ):
-                            asignados_dia.append(familiar)
-                            conteo[familiar] += 1
-                            conteo_sabados[familiar] += 1
-                            pool_pendientes.discard(familiar)
+        # 3b. Preferencias
+        for nombre, fechas_pref in preferencias.items():
+            if (
+                fecha in fechas_pref
+                and nombre not in asignados_dia
+                and puede_asignar_sabado(nombre)
+            ):
+                asignados_dia.append(nombre)
+                conteo[nombre] += 1
+                conteo_sabados[nombre] += 1
+                pool_pendientes.discard(nombre)
+                # Familiares del de la preferencia
+                for familiar in obtener_familiares(nombre, grupos, diacono_grupo):
+                    if familiar not in asignados_dia and puede_asignar_sabado(familiar):
+                        asignados_dia.append(familiar)
+                        conteo[familiar] += 1
+                        conteo_sabados[familiar] += 1
+                        pool_pendientes.discard(familiar)
 
-            # Seleccionar adicionales priorizando pendientes
-            adicionales_necesarios = 3 - (len(asignados_dia) - 1)
-
-            # Crear lista de candidatos priorizando pendientes
-            # Excluir a los que pueden abrir sábado (ya tienen turnos garantizados)
+        # 3c. Completar hasta 3 adicionales (4 personas total)
+        adicionales_necesarios = 3 - (len(asignados_dia) - 1)
+        if adicionales_necesarios > 0:
+            # Candidatos: Priorizar los que NO abren sábados para no gastar "abridores"
+            # Pero si son de la pool de pendientes (0 turnos), incluirlos
             pendientes_lista = [
                 d
                 for d in pool_pendientes
@@ -268,7 +303,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 and not tiene_excepcion(d, fecha, excepciones, grupos, diacono_grupo)
                 and puede_asignar_sabado(d)
             ]
-            random.shuffle(pendientes_lista)
+            rng.shuffle(pendientes_lista)
 
             otros = [
                 d
@@ -279,11 +314,11 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 and not tiene_excepcion(d, fecha, excepciones, grupos, diacono_grupo)
                 and puede_asignar_sabado(d)
             ]
-            random.shuffle(otros)
+            rng.shuffle(otros)
 
             candidatos = pendientes_lista + otros
 
-            # Fallback: si no hay suficientes, agregar los que abren sábado
+            # Fallback: incluir abridores si faltan personas
             if len(candidatos) < adicionales_necesarios:
                 fallback = [
                     d
@@ -294,118 +329,62 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                     )
                     and puede_asignar_sabado(d)
                 ]
-                random.shuffle(fallback)
+                rng.shuffle(fallback)
                 candidatos.extend(fallback)
 
-            adicionales_agregados = 0
-            i = 0
-            while adicionales_agregados < adicionales_necesarios and i < len(
-                candidatos
-            ):
-                candidato = candidatos[i]
-                i += 1
+            agregados = 0
+            idx_c = 0
+            while agregados < adicionales_necesarios and idx_c < len(candidatos):
+                c = candidatos[idx_c]
+                idx_c += 1
+                if c not in asignados_dia:
+                    asignados_dia.append(c)
+                    conteo[c] += 1
+                    conteo_sabados[c] += 1
+                    pool_pendientes.discard(c)
+                    agregados += 1
+                    # Familiares
+                    for familiar in obtener_familiares(c, grupos, diacono_grupo):
+                        if familiar not in asignados_dia and puede_asignar_sabado(
+                            familiar
+                        ):
+                            asignados_dia.append(familiar)
+                            conteo[familiar] += 1
+                            conteo_sabados[familiar] += 1
+                            pool_pendientes.discard(familiar)
 
-                if candidato in asignados_dia:
-                    continue
+        t["adicionales"] = asignados_dia[1:]
 
-                asignados_dia.append(candidato)
-                conteo[candidato] += 1
-                conteo_sabados[candidato] += 1
-                pool_pendientes.discard(candidato)
-                adicionales_agregados += 1
-
-                # Agregar familiares del candidato (si pueden sábados)
-                for familiar in obtener_familiares(candidato, grupos, diacono_grupo):
-                    if familiar not in asignados_dia and puede_asignar_sabado(familiar):
-                        asignados_dia.append(familiar)
-                        conteo[familiar] += 1
-                        conteo_sabados[familiar] += 1
-                        pool_pendientes.discard(familiar)
-
-            turnos.append(
-                {
-                    "fecha": fecha,
-                    "dia_semana": dia_semana,
-                    "abre": quien_abre,
-                    "adicionales": asignados_dia[1:],  # Todos menos quien abre
-                }
-            )
-
-        else:  # Miércoles (No verifica ni incrementa sábados)
-            # Buscar quien abre que no tenga excepción
-            quien_abre = None
-            intentos = 0
-            while intentos < len(abre_miercoles):
-                candidato_abre = abre_miercoles[
-                    (idx_miercoles + intentos) % len(abre_miercoles)
-                ]
-                if not tiene_excepcion(
-                    candidato_abre, fecha, excepciones, grupos, diacono_grupo
-                ):
-                    quien_abre = candidato_abre
-                    idx_miercoles += intentos + 1
-                    break
-                intentos += 1
-
-            if quien_abre is None:
-                quien_abre = abre_miercoles[idx_miercoles % len(abre_miercoles)]
-                idx_miercoles += 1
-
-            conteo[quien_abre] += 1
-            pool_pendientes.discard(quien_abre)
-
-            turnos.append(
-                {
-                    "fecha": fecha,
-                    "dia_semana": dia_semana,
-                    "abre": quien_abre,
-                    "adicionales": [],
-                }
-            )
-
-    # Verificación final: distribuir faltantes (Sábados)
+    # --- Verificación final (Faltantes) ---
     faltantes = [d for d, c in conteo.items() if c == 0]
-
     if faltantes:
-        turnos_sabado = [t for t in turnos if t["dia_semana"] == 5]
-
-        for faltante in faltantes:
-            # Buscar sábado donde no tenga excepción, pueda sabado y con menos personas
-            turnos_disponibles = [
+        turnos_sabado = [turnos_dict[f] for f, d in fechas if d == 5]
+        for f in faltantes:
+            disponibles = [
                 t
                 for t in turnos_sabado
                 if not tiene_excepcion(
-                    faltante, t["fecha"], excepciones, grupos, diacono_grupo
+                    f, t["fecha"], excepciones, grupos, diacono_grupo
                 )
-                and puede_asignar_sabado(faltante)
+                and puede_asignar_sabado(f)
             ]
+            if disponibles:
+                t_menor = min(disponibles, key=lambda x: len(x["adicionales"]))
+                if f not in t_menor["adicionales"] and f != t_menor["abre"]:
+                    t_menor["adicionales"].append(f)
+                    conteo[f] += 1
+                    conteo_sabados[f] += 1
+                    for familiar in obtener_familiares(f, grupos, diacono_grupo):
+                        if (
+                            familiar not in t_menor["adicionales"]
+                            and familiar != t_menor["abre"]
+                            and puede_asignar_sabado(familiar)
+                        ):
+                            t_menor["adicionales"].append(familiar)
+                            conteo[familiar] += 1
+                            conteo_sabados[familiar] += 1
 
-            if not turnos_disponibles:
-                continue  # No hay fecha disponible para este diácono
-
-            turno_menor = min(
-                turnos_disponibles, key=lambda t: len(t["adicionales"]) + 1
-            )
-
-            if (
-                faltante not in turno_menor["adicionales"]
-                and faltante != turno_menor["abre"]
-            ):
-                turno_menor["adicionales"].append(faltante)
-                conteo[faltante] += 1
-                conteo_sabados[faltante] += 1
-
-                for familiar in obtener_familiares(faltante, grupos, diacono_grupo):
-                    if (
-                        familiar not in turno_menor["adicionales"]
-                        and familiar != turno_menor["abre"]
-                        and puede_asignar_sabado(familiar)
-                    ):
-                        turno_menor["adicionales"].append(familiar)
-                        conteo[familiar] += 1
-                        conteo_sabados[familiar] += 1
-
-    return turnos, conteo
+    return list(turnos_dict.values()), conteo
 
 
 def generar_markdown(turnos: list, conteo: dict, mes: int, año: int) -> str:
