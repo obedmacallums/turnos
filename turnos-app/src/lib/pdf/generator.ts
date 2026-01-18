@@ -42,9 +42,11 @@ export function descargarPdfTurnos(schedule: GeneratedSchedule): void {
       } else { // Miércoles u otros
         return [
           fechaFormateada,
-          `${turno.abre}\n(7:40 PM)`,
-          '',
-          ''
+          { 
+            content: `${turno.abre} (7:40 PM)`, 
+            colSpan: 3, 
+            styles: { halign: 'center' as const } 
+          }
         ];
       }
     });
@@ -56,7 +58,7 @@ export function descargarPdfTurnos(schedule: GeneratedSchedule): void {
         'FECHA', 
         'Apertura y cierre del Templo', 
         'Diezmos, Ofrendas y Apoyo en instalaciones del Templo', 
-        'Culto Joven 6:10 PM'
+        'Culto Joven (6:10 PM)'
       ]],
       body: tableData,
       theme: 'grid',
