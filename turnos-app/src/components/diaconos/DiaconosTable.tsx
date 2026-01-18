@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Calendar, Upload, Plus } from 'lucide-react';
+import { Pencil, Trash2, Calendar, Upload, Plus, Download } from 'lucide-react';
 import { useDiaconosStore } from '../../store/diaconosStore';
 import type { Diacono } from '../../types';
 import { Button } from '../ui/button';
@@ -14,6 +14,7 @@ import {
 import { DiaconoForm } from './DiaconoForm';
 import { DateListEditor } from './DateListEditor';
 import { ImportDialog } from './ImportDialog';
+import { generarYamlDiaconos, descargarYaml } from '../../lib/yaml/generator';
 
 export function DiaconosTable() {
   const diaconos = useDiaconosStore((state) => state.diaconos);
@@ -73,6 +74,12 @@ export function DiaconosTable() {
     }
   };
 
+  const handleExportYaml = () => {
+    if (diaconos.length === 0) return;
+    const yamlContent = generarYamlDiaconos(diaconos);
+    descargarYaml(yamlContent, 'diaconos_backup.yaml');
+  };
+
   const activeDiaconos = diaconos.filter((d) => d.activo);
   const inactiveDiaconos = diaconos.filter((d) => !d.activo);
 
@@ -81,6 +88,10 @@ export function DiaconosTable() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Gestión de Diáconos</h2>
         <div className="flex gap-2">
+          <Button onClick={handleExportYaml} variant="outline" disabled={diaconos.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar YAML
+          </Button>
           <Button onClick={() => setImportOpen(true)} variant="outline">
             <Upload className="h-4 w-4 mr-2" />
             Importar MD
@@ -246,6 +257,7 @@ export function DiaconosTable() {
       )}
 
       <DiaconoForm
+        key={editingDiacono?.id || 'new'}
         open={formOpen}
         onOpenChange={setFormOpen}
         diacono={editingDiacono}
@@ -253,6 +265,7 @@ export function DiaconosTable() {
       />
 
       <DateListEditor
+        key={`${dateEditorDiacono?.id || 'none'}-${dateEditorType}`}
         open={dateEditorOpen}
         onOpenChange={setDateEditorOpen}
         title={

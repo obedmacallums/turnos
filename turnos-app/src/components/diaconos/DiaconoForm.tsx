@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { Diacono } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -21,39 +21,15 @@ interface DiaconoFormProps {
 
 export function DiaconoForm({ open, onOpenChange, diacono, onSave }: DiaconoFormProps) {
   const [formData, setFormData] = useState<Omit<Diacono, 'id'>>({
-    nombre: '',
-    abreSabado: false,
-    abreMiercoles: false,
-    grupo: '',
-    activo: true,
-    excepciones: [],
-    preferencias: [],
+    nombre: diacono?.nombre || '',
+    abreSabado: diacono?.abreSabado || false,
+    abreMiercoles: diacono?.abreMiercoles || false,
+    grupo: diacono?.grupo || '',
+    activo: diacono?.activo ?? true,
+    excepciones: diacono?.excepciones || [],
+    preferencias: diacono?.preferencias || [],
+    maxTurnosSab: diacono?.maxTurnosSab,
   });
-
-  useEffect(() => {
-    if (diacono) {
-      setFormData({
-        nombre: diacono.nombre,
-        abreSabado: diacono.abreSabado,
-        abreMiercoles: diacono.abreMiercoles,
-        grupo: diacono.grupo,
-        activo: diacono.activo,
-        excepciones: diacono.excepciones,
-        preferencias: diacono.preferencias,
-        maxTurnosSab: diacono.maxTurnosSab,
-      });
-    } else {
-      setFormData({
-        nombre: '',
-        abreSabado: false,
-        abreMiercoles: false,
-        grupo: '',
-        activo: true,
-        excepciones: [],
-        preferencias: [],
-      });
-    }
-  }, [diacono, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
