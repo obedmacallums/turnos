@@ -224,16 +224,30 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
     idx_sabado = 0
     for fecha in fechas_sabado:
         quien_abre = None
-        intentos = 0
-        while intentos < len(abre_sabado):
-            candidato = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
-            if not tiene_excepcion(
-                candidato, fecha, excepciones, grupos, diacono_grupo
-            ) and puede_asignar_sabado(candidato):
+
+        # Primero buscar abridor con preferencia para esta fecha
+        for candidato in abre_sabado:
+            if (
+                candidato in preferencias
+                and fecha in preferencias[candidato]
+                and not tiene_excepcion(candidato, fecha, excepciones, grupos, diacono_grupo)
+                and puede_asignar_sabado(candidato)
+            ):
                 quien_abre = candidato
-                idx_sabado += intentos + 1
                 break
-            intentos += 1
+
+        # Si no hay preferencia, usar rotación normal
+        if quien_abre is None:
+            intentos = 0
+            while intentos < len(abre_sabado):
+                candidato = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
+                if not tiene_excepcion(
+                    candidato, fecha, excepciones, grupos, diacono_grupo
+                ) and puede_asignar_sabado(candidato):
+                    quien_abre = candidato
+                    idx_sabado += intentos + 1
+                    break
+                intentos += 1
 
         if quien_abre is None:
             quien_abre = abre_sabado[idx_sabado % len(abre_sabado)]
@@ -286,18 +300,31 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
     idx_miercoles = 0
     for fecha in fechas_miercoles:
         quien_abre = None
-        intentos = 0
-        while intentos < len(candidatos_miercoles_ordenados):
-            candidato = candidatos_miercoles_ordenados[
-                (idx_miercoles + intentos) % len(candidatos_miercoles_ordenados)
-            ]
-            if not tiene_excepcion(
-                candidato, fecha, excepciones, grupos, diacono_grupo
+
+        # Primero buscar abridor con preferencia para esta fecha
+        for candidato in candidatos_miercoles_ordenados:
+            if (
+                candidato in preferencias
+                and fecha in preferencias[candidato]
+                and not tiene_excepcion(candidato, fecha, excepciones, grupos, diacono_grupo)
             ):
                 quien_abre = candidato
-                idx_miercoles += intentos + 1
                 break
-            intentos += 1
+
+        # Si no hay preferencia, usar rotación normal
+        if quien_abre is None:
+            intentos = 0
+            while intentos < len(candidatos_miercoles_ordenados):
+                candidato = candidatos_miercoles_ordenados[
+                    (idx_miercoles + intentos) % len(candidatos_miercoles_ordenados)
+                ]
+                if not tiene_excepcion(
+                    candidato, fecha, excepciones, grupos, diacono_grupo
+                ):
+                    quien_abre = candidato
+                    idx_miercoles += intentos + 1
+                    break
+                intentos += 1
 
         if quien_abre is None:
             quien_abre = candidatos_miercoles_ordenados[
