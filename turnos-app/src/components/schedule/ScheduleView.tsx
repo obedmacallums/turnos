@@ -3,6 +3,7 @@ import { MESES } from '../../types';
 import { TurnoCard } from './TurnoCard';
 import { ExportButton } from './ExportButton';
 import { ExportPdfButton } from './ExportPdfButton';
+import { ExportImageButton } from './ExportImageButton';
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ export function ScheduleView() {
         <div className="flex gap-2">
           <ExportButton schedule={currentSchedule} />
           <ExportPdfButton schedule={currentSchedule} />
+          <ExportImageButton schedule={currentSchedule} />
         </div>
       </div>
 
