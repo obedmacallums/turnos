@@ -23,7 +23,8 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
   const nombreMes = MESES[schedule.mes];
   const titulo = `Turnos de Diáconos - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
 
-  // Título del documento
+  // Título del documento con color azul
+  doc.setTextColor(41, 128, 185);
   doc.setFontSize(18);
   doc.text(titulo, 14, 22);
 
@@ -54,7 +55,7 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
     }
   });
 
-  // Tabla principal con el nuevo formato y sin colores
+  // Tabla principal con colores azules profesionales
   autoTable(doc, {
     startY: 30,
     head: [[
@@ -66,17 +67,17 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: 255,
-      textColor: 0,
+      fillColor: [41, 128, 185],
+      textColor: 255,
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
       lineWidth: 0.2,
-      lineColor: 0
+      lineColor: [189, 195, 199]
     },
     styles: {
-      textColor: 0,
-      lineColor: 0,
+      textColor: [44, 62, 80],
+      lineColor: [189, 195, 199],
       lineWidth: 0.2,
       fontSize: 8,
       cellPadding: 2,
@@ -89,7 +90,7 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
       3: { halign: 'center' }
     },
     margin: { top: 30 },
-    alternateRowStyles: { fillColor: 255 }
+    alternateRowStyles: { fillColor: [235, 245, 251] }
   });
 
   return doc;
@@ -146,11 +147,11 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
     head: [['FECHA', 'Apertura y cierre del Templo', 'Diezmos, Ofrendas y Apoyo en instalaciones del Templo', 'Culto Joven (6:10 PM)']],
     body: tableData,
     theme: 'grid' as const,
-    headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: 0 },
-    styles: { textColor: 0, lineColor: 0, lineWidth: 0.2, fontSize: 8, cellPadding: 2, valign: 'middle' as const },
+    headStyles: { fillColor: [41, 128, 185] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: [189, 195, 199] as [number, number, number] },
+    styles: { textColor: [44, 62, 80] as [number, number, number], lineColor: [189, 195, 199] as [number, number, number], lineWidth: 0.2, fontSize: 8, cellPadding: 2, valign: 'middle' as const },
     columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 50, halign: 'center' as const }, 2: { cellWidth: 90 }, 3: { halign: 'center' as const } },
     margin: { top: 30 },
-    alternateRowStyles: { fillColor: 255 }
+    alternateRowStyles: { fillColor: [235, 245, 251] as [number, number, number] }
   };
 
   // Calcular altura necesaria
@@ -161,6 +162,7 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
 
   // Crear documento con dimensiones ajustadas
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pageWidth, newHeight] });
+  doc.setTextColor(41, 128, 185);
   doc.setFontSize(18);
   doc.text(titulo, 14, 22);
   autoTable(doc, tableConfig);
@@ -183,18 +185,22 @@ export async function descargarImagenTurnos(schedule: GeneratedSchedule): Promis
     const pdf = await pdfjsLib.getDocument({ data: pdfArrayBuffer }).promise;
     const page = await pdf.getPage(1);
 
-    // 4. Renderizar a canvas (2x escala para mejor calidad)
-    const scale = 2;
+    // 4. Renderizar a canvas (4x escala para alta definición)
+    const scale = 4;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const context = canvas.getContext('2d')!;
 
+    // Configurar contexto para mejor calidad de renderizado
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+
     await page.render({ canvasContext: context, viewport, canvas }).promise;
 
-    // 5. Exportar como JPEG y descargar
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    // 5. Exportar como JPEG con máxima calidad
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
     const link = document.createElement('a');
     link.href = dataUrl;
     const nombreMes = MESES[schedule.mes];
