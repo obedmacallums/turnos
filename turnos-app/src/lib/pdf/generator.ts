@@ -158,7 +158,7 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
   autoTable(tempDoc, tableConfig);
   const finalY = (tempDoc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
   const pageWidth = tempDoc.internal.pageSize.getWidth();
-  const newHeight = finalY + 10;
+  const newHeight = finalY + 25;
 
   // Crear documento con dimensiones ajustadas
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pageWidth, newHeight] });
