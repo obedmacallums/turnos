@@ -6,8 +6,8 @@ import { es } from 'date-fns/locale';
 import type { GeneratedSchedule } from '../../types';
 import { MESES } from '../../types';
 
-// Configurar worker de pdf.js desde public folder (para build estático)
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Configurar worker de pdf.js desde CDN (recomendado para builds estáticos)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Genera el documento PDF (función interna compartida)
@@ -112,12 +112,69 @@ export function descargarPdfTurnos(schedule: GeneratedSchedule): void {
 }
 
 /**
+ * Genera un PDF con dimensiones ajustadas al contenido (para imagen)
+ */
+function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
+  // Primero generar en tamaño normal para calcular altura
+  const tempDoc = new jsPDF({ orientation: 'landscape' });
+  const nombreMes = MESES[schedule.mes];
+  const titulo = `Turnos de Diáconos - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
+
+  const tableData = schedule.turnos.map(turno => {
+    const fecha = parseISO(turno.fecha);
+    const fechaFormateada = format(fecha, "eeee d 'de' MMMM 'de' yyyy", { locale: es });
+    const todos = [turno.abre, ...turno.adicionales].filter(Boolean);
+    const nombresLista = todos.join('\n');
+
+    if (turno.diaSemana === 5) {
+      return [
+        fechaFormateada,
+        `${turno.abre}\n(8:10 AM)`,
+        nombresLista,
+        `Abrir y cerrar templo - Recoger ofrendas\n\n${turno.abre}`
+      ];
+    } else {
+      return [
+        fechaFormateada,
+        { content: `${turno.abre} (7:40 PM)`, colSpan: 3, styles: { halign: 'center' as const } }
+      ];
+    }
+  });
+
+  const tableConfig = {
+    startY: 30,
+    head: [['FECHA', 'Apertura y cierre del Templo', 'Diezmos, Ofrendas y Apoyo en instalaciones del Templo', 'Culto Joven (6:10 PM)']],
+    body: tableData,
+    theme: 'grid' as const,
+    headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: 0 },
+    styles: { textColor: 0, lineColor: 0, lineWidth: 0.2, fontSize: 8, cellPadding: 2, valign: 'middle' as const },
+    columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 50, halign: 'center' as const }, 2: { cellWidth: 90 }, 3: { halign: 'center' as const } },
+    margin: { top: 30 },
+    alternateRowStyles: { fillColor: 255 }
+  };
+
+  // Calcular altura necesaria
+  autoTable(tempDoc, tableConfig);
+  const finalY = (tempDoc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+  const pageWidth = tempDoc.internal.pageSize.getWidth();
+  const newHeight = finalY + 10;
+
+  // Crear documento con dimensiones ajustadas
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pageWidth, newHeight] });
+  doc.setFontSize(18);
+  doc.text(titulo, 14, 22);
+  autoTable(doc, tableConfig);
+
+  return doc;
+}
+
+/**
  * Descarga imagen JPEG del calendario (convierte el PDF a imagen)
  */
 export async function descargarImagenTurnos(schedule: GeneratedSchedule): Promise<void> {
   try {
-    // 1. Generar el MISMO PDF
-    const doc = generarDocumentoPdf(schedule);
+    // 1. Generar PDF con dimensiones ajustadas (sin espacio extra)
+    const doc = generarDocumentoPdfAjustado(schedule);
 
     // 2. Obtener como ArrayBuffer
     const pdfArrayBuffer = doc.output('arraybuffer');
