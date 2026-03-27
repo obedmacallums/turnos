@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Calendar, Upload, Plus, Download } from 'lucide-react';
+import { Pencil, Trash2, Calendar, Upload, Plus, Download, Search } from 'lucide-react';
 import { useDiaconosStore } from '../../store/diaconosStore';
 import type { Diacono } from '../../types';
 import { Button } from '../ui/button';
@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import { Input } from '../ui/input';
 import { DiaconoForm } from './DiaconoForm';
 import { DateListEditor } from './DateListEditor';
 import { ImportDialog } from './ImportDialog';
@@ -32,6 +33,7 @@ export function DiaconosTable() {
   const [dateEditorDiacono, setDateEditorDiacono] = useState<Diacono | null>(null);
 
   const [importOpen, setImportOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const handleEdit = (diacono: Diacono) => {
     setEditingDiacono(diacono);
@@ -80,8 +82,13 @@ export function DiaconosTable() {
     descargarYaml(yamlContent, 'diaconos_backup.yaml');
   };
 
-  const activeDiaconos = diaconos.filter((d) => d.activo);
-  const inactiveDiaconos = diaconos.filter((d) => !d.activo);
+  const searchLower = search.toLowerCase();
+  const activeDiaconos = diaconos.filter(
+    (d) => d.activo && (!search || d.nombre.toLowerCase().includes(searchLower))
+  );
+  const inactiveDiaconos = diaconos.filter(
+    (d) => !d.activo && (!search || d.nombre.toLowerCase().includes(searchLower))
+  );
 
   return (
     <div className="space-y-4">
@@ -102,6 +109,18 @@ export function DiaconosTable() {
           </Button>
         </div>
       </div>
+
+      {diaconos.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar diácono..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {diaconos.length === 0 ? (
         <div className="border border-dashed rounded-lg p-12 text-center">

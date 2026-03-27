@@ -9,6 +9,7 @@ interface ScheduleState {
   setCurrentSchedule: (schedule: GeneratedSchedule | null) => void;
   getScheduleByMonthYear: (mes: number, año: number) => GeneratedSchedule | undefined;
   deleteSchedule: (id: string) => void;
+  updateSchedule: (schedule: GeneratedSchedule) => void;
 }
 
 export const useScheduleStore = create<ScheduleState>()(
@@ -43,6 +44,17 @@ export const useScheduleStore = create<ScheduleState>()(
           schedules: state.schedules.filter((s) => s.id !== id),
           currentSchedule:
             state.currentSchedule?.id === id ? null : state.currentSchedule,
+        }));
+      },
+      updateSchedule: (schedule) => {
+        set((state) => ({
+          schedules: state.schedules.map((s) =>
+            s.id === schedule.id ? schedule : s
+          ),
+          currentSchedule:
+            state.currentSchedule?.id === schedule.id
+              ? schedule
+              : state.currentSchedule,
         }));
       },
     }),
