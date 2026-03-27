@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useScheduleStore } from '../../store/scheduleStore';
 import { MESES } from '../../types';
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from '../../lib/pdf/colorSchemes';
 import { TurnoCard } from './TurnoCard';
 import { ExportButton } from './ExportButton';
 import { ExportPdfButton } from './ExportPdfButton';
@@ -16,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 
 export function ScheduleView() {
   const currentSchedule = useScheduleStore((state) => state.currentSchedule);
+  const [colorScheme, setColorScheme] = useState(DEFAULT_COLOR_SCHEME);
 
   if (!currentSchedule) {
     return (
@@ -45,10 +48,28 @@ export function ScheduleView() {
         <h2 className="text-2xl font-bold">
           Turnos {nombreMes} {año}
         </h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            {COLOR_SCHEMES.map((scheme) => (
+              <button
+                key={scheme.id}
+                title={scheme.label}
+                onClick={() => setColorScheme(scheme)}
+                className={`w-6 h-6 rounded-full transition-all ${
+                  colorScheme.id === scheme.id
+                    ? 'ring-2 ring-offset-2 scale-110'
+                    : 'hover:scale-105 opacity-70 hover:opacity-100'
+                }`}
+                style={{
+                  backgroundColor: scheme.hex,
+                  ...(colorScheme.id === scheme.id ? { boxShadow: `0 0 0 2px white, 0 0 0 4px ${scheme.hex}` } : {}),
+                }}
+              />
+            ))}
+          </div>
           <ExportButton schedule={currentSchedule} />
-          <ExportPdfButton schedule={currentSchedule} />
-          <ExportImageButton schedule={currentSchedule} />
+          <ExportPdfButton schedule={currentSchedule} colorScheme={colorScheme} />
+          <ExportImageButton schedule={currentSchedule} colorScheme={colorScheme} />
         </div>
       </div>
 

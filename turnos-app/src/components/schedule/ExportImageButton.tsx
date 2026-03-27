@@ -2,14 +2,16 @@ import { Image } from 'lucide-react';
 import { Button } from '../ui/button';
 import type { GeneratedSchedule } from '../../types';
 import { descargarImagenTurnos } from '../../lib/pdf/generator';
+import { type ColorScheme, DEFAULT_COLOR_SCHEME } from '../../lib/pdf/colorSchemes';
 
 interface ExportImageButtonProps {
   schedule: GeneratedSchedule;
+  colorScheme?: ColorScheme;
 }
 
-export function ExportImageButton({ schedule }: ExportImageButtonProps) {
+export function ExportImageButton({ schedule, colorScheme = DEFAULT_COLOR_SCHEME }: ExportImageButtonProps) {
   const handleExport = async () => {
-    await descargarImagenTurnos(schedule);
+    await descargarImagenTurnos(schedule, colorScheme);
   };
 
   return (

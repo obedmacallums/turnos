@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { GeneratedSchedule } from '../../types';
 import { MESES } from '../../types';
+import { type ColorScheme, DEFAULT_COLOR_SCHEME } from './colorSchemes';
 
 // Configurar worker de pdf.js desde CDN (recomendado para builds estáticos)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -12,7 +13,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 /**
  * Genera el documento PDF (función interna compartida)
  */
-function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
+function generarDocumentoPdf(schedule: GeneratedSchedule, colorScheme: ColorScheme = DEFAULT_COLOR_SCHEME): jsPDF {
   console.log('Iniciando generación de PDF...', schedule);
 
   if (!schedule.turnos || schedule.turnos.length === 0) {
@@ -23,8 +24,7 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
   const nombreMes = MESES[schedule.mes];
   const titulo = `Turnos de Diáconos - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
 
-  // Título del documento con color azul
-  doc.setTextColor(41, 128, 185);
+  doc.setTextColor(...colorScheme.strong);
   doc.setFontSize(18);
   doc.text(titulo, 14, 22);
 
@@ -67,7 +67,7 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [41, 128, 185],
+      fillColor: colorScheme.strong,
       textColor: 255,
       fontStyle: 'bold',
       halign: 'center',
@@ -90,7 +90,7 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
       3: { halign: 'center' }
     },
     margin: { top: 30 },
-    alternateRowStyles: { fillColor: [235, 245, 251] }
+    alternateRowStyles: { fillColor: colorScheme.light }
   });
 
   return doc;
@@ -99,9 +99,9 @@ function generarDocumentoPdf(schedule: GeneratedSchedule): jsPDF {
 /**
  * Genera y descarga un PDF con el calendario de turnos
  */
-export function descargarPdfTurnos(schedule: GeneratedSchedule): void {
+export function descargarPdfTurnos(schedule: GeneratedSchedule, colorScheme: ColorScheme = DEFAULT_COLOR_SCHEME): void {
   try {
-    const doc = generarDocumentoPdf(schedule);
+    const doc = generarDocumentoPdf(schedule, colorScheme);
     const nombreMes = MESES[schedule.mes];
     const fileName = `Turnos_${nombreMes}_${schedule.año}.pdf`;
     console.log(`Guardando PDF: ${fileName}`);
@@ -115,7 +115,7 @@ export function descargarPdfTurnos(schedule: GeneratedSchedule): void {
 /**
  * Genera un PDF con dimensiones ajustadas al contenido (para imagen)
  */
-function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
+function generarDocumentoPdfAjustado(schedule: GeneratedSchedule, colorScheme: ColorScheme = DEFAULT_COLOR_SCHEME): jsPDF {
   // Primero generar en tamaño normal para calcular altura
   const tempDoc = new jsPDF({ orientation: 'landscape' });
   const nombreMes = MESES[schedule.mes];
@@ -147,11 +147,11 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
     head: [['FECHA', 'Apertura y cierre del Templo', 'Diezmos, Ofrendas y Apoyo en instalaciones del Templo', 'Culto Joven (6:10 PM)']],
     body: tableData,
     theme: 'grid' as const,
-    headStyles: { fillColor: [41, 128, 185] as [number, number, number], textColor: 255, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: [189, 195, 199] as [number, number, number] },
+    headStyles: { fillColor: colorScheme.strong, textColor: 255, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: [189, 195, 199] as [number, number, number] },
     styles: { textColor: [44, 62, 80] as [number, number, number], lineColor: [189, 195, 199] as [number, number, number], lineWidth: 0.2, fontSize: 8, cellPadding: 2, valign: 'middle' as const },
     columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 50, halign: 'center' as const }, 2: { cellWidth: 90 }, 3: { halign: 'center' as const } },
     margin: { top: 30 },
-    alternateRowStyles: { fillColor: [235, 245, 251] as [number, number, number] }
+    alternateRowStyles: { fillColor: colorScheme.light }
   };
 
   // Calcular altura necesaria
@@ -162,7 +162,7 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
 
   // Crear documento con dimensiones ajustadas
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pageWidth, newHeight] });
-  doc.setTextColor(41, 128, 185);
+  doc.setTextColor(...colorScheme.strong);
   doc.setFontSize(18);
   doc.text(titulo, 14, 22);
   autoTable(doc, tableConfig);
@@ -173,10 +173,10 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule): jsPDF {
 /**
  * Descarga imagen JPEG del calendario (convierte el PDF a imagen)
  */
-export async function descargarImagenTurnos(schedule: GeneratedSchedule): Promise<void> {
+export async function descargarImagenTurnos(schedule: GeneratedSchedule, colorScheme: ColorScheme = DEFAULT_COLOR_SCHEME): Promise<void> {
   try {
     // 1. Generar PDF con dimensiones ajustadas (sin espacio extra)
-    const doc = generarDocumentoPdfAjustado(schedule);
+    const doc = generarDocumentoPdfAjustado(schedule, colorScheme);
 
     // 2. Obtener como ArrayBuffer
     const pdfArrayBuffer = doc.output('arraybuffer');
