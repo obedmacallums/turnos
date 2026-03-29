@@ -187,9 +187,12 @@ export function asignarTurnos(
 
   // --- FASE 1: Abridores de Sábados ---
   let idx_sabado = 0;
+  const openersAssigned = new Set<string>();
+
   for (const isoFecha of fechasSabado) {
     const fechaObj = parseISODate(isoFecha);
     let quien_abre: string | null = null;
+    const allAssigned = openersAssigned.size >= abre_sabado.length;
 
     // Primero buscar abridor con preferencia para esta fecha
     for (const candidato of abre_sabado) {
@@ -197,7 +200,8 @@ export function asignarTurnos(
         candidato in preferencias &&
         preferencias[candidato].some(fp => isSameDate(fp, fechaObj)) &&
         !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
-        puedeAsignarSabado(candidato)
+        puedeAsignarSabado(candidato) &&
+        (allAssigned || !openersAssigned.has(candidato))
       ) {
         quien_abre = candidato;
         break;
@@ -211,7 +215,8 @@ export function asignarTurnos(
         const candidato = abre_sabado[(idx_sabado + intentos) % abre_sabado.length];
         if (
           !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
-          puedeAsignarSabado(candidato)
+          puedeAsignarSabado(candidato) &&
+          (allAssigned || !openersAssigned.has(candidato))
         ) {
           quien_abre = candidato;
           idx_sabado += intentos + 1;
@@ -230,6 +235,7 @@ export function asignarTurnos(
     conteo[quien_abre]++;
     conteoSabados[quien_abre]++;
     pool_pendientes.delete(quien_abre);
+    openersAssigned.add(quien_abre);
   }
 
   // --- FASE 2: Familiares de Abridores de Sábado ---
@@ -275,16 +281,20 @@ export function asignarTurnos(
   ];
 
   let idx_miercoles = 0;
+  const openersWedAssigned = new Set<string>();
+
   for (const isoFecha of fechasMiercoles) {
     const fechaObj = parseISODate(isoFecha);
     let quien_abre: string | null = null;
+    const allWedAssigned = openersWedAssigned.size >= candidatos_miercoles_ordenados.length;
 
     // Primero buscar abridor con preferencia para esta fecha
     for (const candidato of candidatos_miercoles_ordenados) {
       if (
         candidato in preferencias &&
         preferencias[candidato].some(fp => isSameDate(fp, fechaObj)) &&
-        !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo)
+        !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
+        (allWedAssigned || !openersWedAssigned.has(candidato))
       ) {
         quien_abre = candidato;
         break;
@@ -298,7 +308,10 @@ export function asignarTurnos(
         const candidato = candidatos_miercoles_ordenados[
           (idx_miercoles + intentos) % candidatos_miercoles_ordenados.length
         ];
-        if (!tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo)) {
+        if (
+          !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
+          (allWedAssigned || !openersWedAssigned.has(candidato))
+        ) {
           quien_abre = candidato;
           idx_miercoles += intentos + 1;
           break;
@@ -316,6 +329,7 @@ export function asignarTurnos(
 
     turnosMap[isoFecha].abre = quien_abre;
     conteo[quien_abre]++;
+    openersWedAssigned.add(quien_abre);
     pool_pendientes.delete(quien_abre);
   }
 
@@ -492,6 +506,7 @@ export function asignarTurnos(
             if (
               !t_menor.adicionales.includes(familiar) &&
               t_menor.abre !== familiar &&
+              !set_abre_sabado.has(familiar) &&
               puedeAsignarSabado(familiar)
             ) {
               t_menor.adicionales.push(familiar);

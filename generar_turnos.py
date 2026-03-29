@@ -222,8 +222,11 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
 
     # --- FASE 1: Abridores de Sábados ---
     idx_sabado = 0
+    openers_assigned = set()
+
     for fecha in fechas_sabado:
         quien_abre = None
+        all_assigned = len(openers_assigned) >= len(abre_sabado)
 
         # Primero buscar abridor con preferencia para esta fecha
         for candidato in abre_sabado:
@@ -232,6 +235,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 and fecha in preferencias[candidato]
                 and not tiene_excepcion(candidato, fecha, excepciones, grupos, diacono_grupo)
                 and puede_asignar_sabado(candidato)
+                and (all_assigned or candidato not in openers_assigned)
             ):
                 quien_abre = candidato
                 break
@@ -241,9 +245,13 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
             intentos = 0
             while intentos < len(abre_sabado):
                 candidato = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
-                if not tiene_excepcion(
-                    candidato, fecha, excepciones, grupos, diacono_grupo
-                ) and puede_asignar_sabado(candidato):
+                if (
+                    not tiene_excepcion(
+                        candidato, fecha, excepciones, grupos, diacono_grupo
+                    )
+                    and puede_asignar_sabado(candidato)
+                    and (all_assigned or candidato not in openers_assigned)
+                ):
                     quien_abre = candidato
                     idx_sabado += intentos + 1
                     break
@@ -257,6 +265,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
         conteo[quien_abre] += 1
         conteo_sabados[quien_abre] += 1
         pool_pendientes.discard(quien_abre)
+        openers_assigned.add(quien_abre)
 
     # --- FASE 2: Familiares de Abridores de Sábado ---
     for fecha in fechas_sabado:
@@ -298,8 +307,11 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
     )
 
     idx_miercoles = 0
+    openers_wed_assigned = set()
+
     for fecha in fechas_miercoles:
         quien_abre = None
+        all_wed_assigned = len(openers_wed_assigned) >= len(candidatos_miercoles_ordenados)
 
         # Primero buscar abridor con preferencia para esta fecha
         for candidato in candidatos_miercoles_ordenados:
@@ -307,6 +319,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 candidato in preferencias
                 and fecha in preferencias[candidato]
                 and not tiene_excepcion(candidato, fecha, excepciones, grupos, diacono_grupo)
+                and (all_wed_assigned or candidato not in openers_wed_assigned)
             ):
                 quien_abre = candidato
                 break
@@ -318,8 +331,11 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 candidato = candidatos_miercoles_ordenados[
                     (idx_miercoles + intentos) % len(candidatos_miercoles_ordenados)
                 ]
-                if not tiene_excepcion(
-                    candidato, fecha, excepciones, grupos, diacono_grupo
+                if (
+                    not tiene_excepcion(
+                        candidato, fecha, excepciones, grupos, diacono_grupo
+                    )
+                    and (all_wed_assigned or candidato not in openers_wed_assigned)
                 ):
                     quien_abre = candidato
                     idx_miercoles += intentos + 1
@@ -335,6 +351,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
         turnos_dict[fecha]["abre"] = quien_abre
         conteo[quien_abre] += 1
         pool_pendientes.discard(quien_abre)
+        openers_wed_assigned.add(quien_abre)
 
     # --- FASE 4: Completar Sábados (con balanceo equitativo) ---
     # Primero, procesar preferencias
@@ -515,6 +532,7 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                         if (
                             familiar not in t_menor["adicionales"]
                             and familiar != t_menor["abre"]
+                            and familiar not in set_abre_sabado
                             and puede_asignar_sabado(familiar)
                         ):
                             t_menor["adicionales"].append(familiar)
