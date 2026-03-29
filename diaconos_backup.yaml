@@ -1,0 +1,171 @@
+diaconos:
+  - nombre: Obed Macallums
+    abreSabado: true
+    abreMiercoles: true
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias:
+      - '2026-04-04'
+    maxTurnosSab: 0
+  - nombre: Diego Lepe
+    abreSabado: false
+    abreMiercoles: false
+    grupo: A
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Elias Quispe Obando
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias:
+      - '2026-04-26'
+    maxTurnosSab: 1
+  - nombre: Gerardo Cuturrufo Escobar
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: false
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Guillermo Cáceres Aguilera Jr
+    abreSabado: false
+    abreMiercoles: false
+    grupo: B
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 0
+  - nombre: Guillermo Cáceres Palma
+    abreSabado: true
+    abreMiercoles: false
+    grupo: B
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: null
+  - nombre: Hector Vega Vega
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Jesús Escalona Jr
+    abreSabado: false
+    abreMiercoles: false
+    grupo: D
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Jorge Bracho Jr
+    abreSabado: false
+    abreMiercoles: true
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: null
+  - nombre: Marco Villarroel Padilla
+    abreSabado: true
+    abreMiercoles: true
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Mateo Lepe
+    abreSabado: false
+    abreMiercoles: false
+    grupo: A
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Nelson Valmont
+    abreSabado: false
+    abreMiercoles: false
+    grupo: C
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Nelvens Valmont
+    abreSabado: false
+    abreMiercoles: false
+    grupo: C
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Sergio Velarde Bustos
+    abreSabado: true
+    abreMiercoles: true
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Thomas Fierro Silva
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Salomón Cudris
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Jefte Oliveira
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Salomón Villalba
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: false
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Eduardo Adonis
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
+  - nombre: Carlos Arellano
+    abreSabado: false
+    abreMiercoles: false
+    grupo: ''
+    activo: false
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: null
+  - nombre: Jesús Escalona
+    abreSabado: false
+    abreMiercoles: false
+    grupo: D
+    activo: true
+    excepciones: []
+    preferencias: []
+    maxTurnosSab: 1
