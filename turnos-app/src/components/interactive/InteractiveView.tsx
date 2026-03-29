@@ -68,12 +68,9 @@ export function InteractiveView() {
       const newTurnos = currentSchedule.turnos.map((t) => {
         if (t.fecha !== fecha) return t;
         const oldOpener = t.abre;
-        const wasInAdicionales = t.adicionales.includes(newOpener);
-        let newAdicionales = wasInAdicionales
-          ? t.adicionales.filter((n) => n !== newOpener)
-          : [...t.adicionales];
-        // Add old opener to adicionales
-        newAdicionales = [oldOpener, ...newAdicionales];
+        // Quitar el nuevo opener de adicionales si estaba, y quitar el opener viejo
+        const newAdicionales = t.adicionales
+          .filter((n) => n !== newOpener && n !== oldOpener);
         return { ...t, abre: newOpener, adicionales: newAdicionales };
       });
       applyUpdate(newTurnos);
@@ -111,6 +108,9 @@ export function InteractiveView() {
         const targetFecha = dropData.fecha;
         const targetTurno = currentSchedule.turnos.find((t) => t.fecha === targetFecha);
         if (!targetTurno) return;
+
+        // Miércoles solo admite un diácono (el opener)
+        if (targetTurno.diaSemana === 2) return;
 
         // Don't drop on same shift
         if (dragData.type === 'shift-deacon' && dragData.fromFecha === targetFecha) return;

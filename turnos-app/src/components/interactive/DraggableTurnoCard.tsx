@@ -25,10 +25,12 @@ export function DraggableTurnoCard({
   onChangeOpener,
 }: DraggableTurnoCardProps) {
   const [openerDialogOpen, setOpenerDialogOpen] = useState(false);
+  const esSabado = turno.diaSemana === 5;
 
   const { isOver, setNodeRef } = useDroppable({
     id: `turno-${turno.fecha}`,
     data: { type: 'shift-card', fecha: turno.fecha },
+    disabled: !esSabado,
   });
 
   const fecha = parseISODate(turno.fecha);
@@ -36,7 +38,6 @@ export function DraggableTurnoCard({
   const dia = fecha.getDate();
   const nombreMes = MESES[mes];
   const fechaCompleta = `${diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)} ${dia} de ${nombreMes} de ${año}`;
-  const esSabado = turno.diaSemana === 5;
 
   return (
     <>
@@ -67,22 +68,24 @@ export function DraggableTurnoCard({
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {turno.adicionales.map((nombre) => (
-              <DraggableDeaconChip
-                key={nombre}
-                nombre={nombre}
-                fromFecha={turno.fecha}
-                role="adicional"
-                onRemove={() => onRemoveDeacon(turno.fecha, nombre)}
-              />
-            ))}
-            {turno.adicionales.length === 0 && !isOver && (
-              <span className="text-xs text-muted-foreground italic">
-                Arrastra diaconos aqui
-              </span>
-            )}
-          </div>
+          {esSabado && (
+            <div className="flex flex-wrap gap-1.5">
+              {turno.adicionales.map((nombre) => (
+                <DraggableDeaconChip
+                  key={nombre}
+                  nombre={nombre}
+                  fromFecha={turno.fecha}
+                  role="adicional"
+                  onRemove={() => onRemoveDeacon(turno.fecha, nombre)}
+                />
+              ))}
+              {turno.adicionales.length === 0 && !isOver && (
+                <span className="text-xs text-muted-foreground italic">
+                  Arrastra diaconos aqui
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="text-xs text-muted-foreground">
             Total: {turno.adicionales.length + 1} diacono{turno.adicionales.length + 1 > 1 ? 's' : ''}
