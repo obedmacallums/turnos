@@ -3,6 +3,7 @@ import { DiaconosTable } from './components/diaconos/DiaconosTable';
 import { ScheduleGenerator } from './components/schedule/ScheduleGenerator';
 import { ScheduleView } from './components/schedule/ScheduleView';
 import { InteractiveView } from './components/interactive/InteractiveView';
+import { ConfigView } from './components/config/ConfigView';
 
 function App() {
   return (
@@ -18,10 +19,11 @@ function App() {
         </div>
 
         <Tabs defaultValue="diaconos" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-md grid-cols-4">
             <TabsTrigger value="diaconos">Diáconos</TabsTrigger>
             <TabsTrigger value="turnos">Generar Turnos</TabsTrigger>
             <TabsTrigger value="interactivo">Interactivo</TabsTrigger>
+            <TabsTrigger value="configuracion">Configuración</TabsTrigger>
           </TabsList>
 
           <TabsContent value="diaconos" className="space-y-4">
@@ -35,6 +37,10 @@ function App() {
 
           <TabsContent value="interactivo" className="space-y-6">
             <InteractiveView />
+          </TabsContent>
+
+          <TabsContent value="configuracion" className="space-y-6">
+            <ConfigView />
           </TabsContent>
         </Tabs>
       </div>
