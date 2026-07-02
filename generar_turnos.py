@@ -220,6 +220,46 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
     # Set de abridores de sábado para verificación rápida
     set_abre_sabado = set(abre_sabado)
 
+    def tiene_preferencia_futura(candidato, fecha_actual, fechas_lista):
+        """El candidato tiene preferencia por una fecha posterior del mismo
+        tipo de día en la que sí podría servir (sin excepción)."""
+        if candidato not in preferencias:
+            return False
+        for f in fechas_lista:
+            if (
+                f > fecha_actual
+                and f in preferencias[candidato]
+                and not tiene_excepcion(candidato, f, excepciones, grupos, diacono_grupo)
+            ):
+                return True
+        return False
+
+    def buscar_abridor(fecha, candidatos, idx, asignados, fechas_lista, es_sabado):
+        """Busca abridor en la rotación relajando restricciones por niveles:
+        1) sin preferencia futura y sin repetir abridor
+        2) sin repetir abridor
+        3) permitir repetir abridor
+        Las excepciones se respetan en todos los niveles.
+        Retorna (nombre | None, nuevo_idx)."""
+        all_assigned = len(asignados) >= len(candidatos)
+        for nivel in (1, 2, 3):
+            intentos = 0
+            while intentos < len(candidatos):
+                candidato = candidatos[(idx + intentos) % len(candidatos)]
+                ok = not tiene_excepcion(
+                    candidato, fecha, excepciones, grupos, diacono_grupo
+                )
+                if ok and es_sabado:
+                    ok = puede_asignar_sabado(candidato)
+                if ok and nivel < 3:
+                    ok = all_assigned or candidato not in asignados
+                if ok and nivel == 1:
+                    ok = not tiene_preferencia_futura(candidato, fecha, fechas_lista)
+                if ok:
+                    return candidato, idx + intentos + 1
+                intentos += 1
+        return None, idx
+
     # --- FASE 1: Abridores de Sábados ---
     idx_sabado = 0
     openers_assigned = set()
@@ -240,23 +280,14 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 quien_abre = candidato
                 break
 
-        # Si no hay preferencia, usar rotación normal
+        # Si no hay preferencia, usar rotación (respeta excepciones y reserva
+        # a los candidatos con preferencia por una fecha futura)
         if quien_abre is None:
-            intentos = 0
-            while intentos < len(abre_sabado):
-                candidato = abre_sabado[(idx_sabado + intentos) % len(abre_sabado)]
-                if (
-                    not tiene_excepcion(
-                        candidato, fecha, excepciones, grupos, diacono_grupo
-                    )
-                    and puede_asignar_sabado(candidato)
-                    and (all_assigned or candidato not in openers_assigned)
-                ):
-                    quien_abre = candidato
-                    idx_sabado += intentos + 1
-                    break
-                intentos += 1
+            quien_abre, idx_sabado = buscar_abridor(
+                fecha, abre_sabado, idx_sabado, openers_assigned, fechas_sabado, True
+            )
 
+        # Último recurso: todos los abridores tienen excepción este día
         if quien_abre is None:
             quien_abre = abre_sabado[idx_sabado % len(abre_sabado)]
             idx_sabado += 1
@@ -324,24 +355,19 @@ def asignar_turnos(fechas: list, diaconos: dict, mes: int, año: int) -> tuple:
                 quien_abre = candidato
                 break
 
-        # Si no hay preferencia, usar rotación normal
+        # Si no hay preferencia, usar rotación (respeta excepciones y reserva
+        # a los candidatos con preferencia por una fecha futura)
         if quien_abre is None:
-            intentos = 0
-            while intentos < len(candidatos_miercoles_ordenados):
-                candidato = candidatos_miercoles_ordenados[
-                    (idx_miercoles + intentos) % len(candidatos_miercoles_ordenados)
-                ]
-                if (
-                    not tiene_excepcion(
-                        candidato, fecha, excepciones, grupos, diacono_grupo
-                    )
-                    and (all_wed_assigned or candidato not in openers_wed_assigned)
-                ):
-                    quien_abre = candidato
-                    idx_miercoles += intentos + 1
-                    break
-                intentos += 1
+            quien_abre, idx_miercoles = buscar_abridor(
+                fecha,
+                candidatos_miercoles_ordenados,
+                idx_miercoles,
+                openers_wed_assigned,
+                fechas_miercoles,
+                False,
+            )
 
+        # Último recurso: todos los abridores tienen excepción este día
         if quien_abre is None:
             quien_abre = candidatos_miercoles_ordenados[
                 idx_miercoles % len(candidatos_miercoles_ordenados)

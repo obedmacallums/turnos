@@ -168,6 +168,66 @@ export function asignarTurnos(
     return true;
   };
 
+  // El candidato tiene preferencia por una fecha posterior del mismo tipo de
+  // día en la que sí podría servir (sin excepción)
+  const tienePreferenciaFutura = (
+    candidato: string,
+    fechaActual: string,
+    fechasLista: string[]
+  ): boolean => {
+    if (!(candidato in preferencias)) {
+      return false;
+    }
+    return fechasLista.some(f => {
+      if (f <= fechaActual) {
+        return false;
+      }
+      const fObj = parseISODate(f);
+      return (
+        preferencias[candidato].some(fp => isSameDate(fp, fObj)) &&
+        !tieneExcepcion(candidato, fObj, excepciones, grupos, diacono_grupo)
+      );
+    });
+  };
+
+  // Busca abridor en la rotación relajando restricciones por niveles:
+  // 1) sin preferencia futura y sin repetir abridor
+  // 2) sin repetir abridor
+  // 3) permitir repetir abridor
+  // Las excepciones se respetan en todos los niveles.
+  const buscarAbridor = (
+    isoFecha: string,
+    candidatos: string[],
+    idx: number,
+    asignados: Set<string>,
+    fechasLista: string[],
+    esSabado: boolean
+  ): { nombre: string | null; idx: number } => {
+    const fechaObj = parseISODate(isoFecha);
+    const allAssigned = asignados.size >= candidatos.length;
+    for (const nivel of [1, 2, 3]) {
+      let intentos = 0;
+      while (intentos < candidatos.length) {
+        const candidato = candidatos[(idx + intentos) % candidatos.length];
+        let ok = !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo);
+        if (ok && esSabado) {
+          ok = puedeAsignarSabado(candidato);
+        }
+        if (ok && nivel < 3) {
+          ok = allAssigned || !asignados.has(candidato);
+        }
+        if (ok && nivel === 1) {
+          ok = !tienePreferenciaFutura(candidato, isoFecha, fechasLista);
+        }
+        if (ok) {
+          return { nombre: candidato, idx: idx + intentos + 1 };
+        }
+        intentos++;
+      }
+    }
+    return { nombre: null, idx };
+  };
+
   const fechas = obtenerFechasMes(mes, año);
   const turnosMap: Record<string, Turno> = {};
 
@@ -208,24 +268,17 @@ export function asignarTurnos(
       }
     }
 
-    // Si no hay preferencia, usar rotación normal
+    // Si no hay preferencia, usar rotación (respeta excepciones y reserva
+    // a los candidatos con preferencia por una fecha futura)
     if (quien_abre === null) {
-      let intentos = 0;
-      while (intentos < abre_sabado.length) {
-        const candidato = abre_sabado[(idx_sabado + intentos) % abre_sabado.length];
-        if (
-          !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
-          puedeAsignarSabado(candidato) &&
-          (allAssigned || !openersAssigned.has(candidato))
-        ) {
-          quien_abre = candidato;
-          idx_sabado += intentos + 1;
-          break;
-        }
-        intentos++;
-      }
+      const res = buscarAbridor(
+        isoFecha, abre_sabado, idx_sabado, openersAssigned, fechasSabado, true
+      );
+      quien_abre = res.nombre;
+      idx_sabado = res.idx;
     }
 
+    // Último recurso: todos los abridores tienen excepción este día
     if (quien_abre === null) {
       quien_abre = abre_sabado[idx_sabado % abre_sabado.length];
       idx_sabado++;
@@ -301,25 +354,22 @@ export function asignarTurnos(
       }
     }
 
-    // Si no hay preferencia, usar rotación normal
+    // Si no hay preferencia, usar rotación (respeta excepciones y reserva
+    // a los candidatos con preferencia por una fecha futura)
     if (quien_abre === null) {
-      let intentos = 0;
-      while (intentos < candidatos_miercoles_ordenados.length) {
-        const candidato = candidatos_miercoles_ordenados[
-          (idx_miercoles + intentos) % candidatos_miercoles_ordenados.length
-        ];
-        if (
-          !tieneExcepcion(candidato, fechaObj, excepciones, grupos, diacono_grupo) &&
-          (allWedAssigned || !openersWedAssigned.has(candidato))
-        ) {
-          quien_abre = candidato;
-          idx_miercoles += intentos + 1;
-          break;
-        }
-        intentos++;
-      }
+      const res = buscarAbridor(
+        isoFecha,
+        candidatos_miercoles_ordenados,
+        idx_miercoles,
+        openersWedAssigned,
+        fechasMiercoles,
+        false
+      );
+      quien_abre = res.nombre;
+      idx_miercoles = res.idx;
     }
 
+    // Último recurso: todos los abridores tienen excepción este día
     if (quien_abre === null) {
       quien_abre = candidatos_miercoles_ordenados[
         idx_miercoles % candidatos_miercoles_ordenados.length
