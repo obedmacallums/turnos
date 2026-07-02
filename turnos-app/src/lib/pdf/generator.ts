@@ -6,9 +6,15 @@ import { es } from 'date-fns/locale';
 import type { GeneratedSchedule } from '../../types';
 import { MESES } from '../../types';
 import { type ColorScheme, DEFAULT_COLOR_SCHEME } from './colorSchemes';
+import { useConfigStore } from '../../store/configStore';
 
 // Configurar worker de pdf.js desde CDN (recomendado para builds estáticos)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+/** Agrega la hora entre paréntesis solo si no está vacía */
+function conHora(texto: string, hora: string, separador: string = ' '): string {
+  return hora.trim() ? `${texto}${separador}(${hora.trim()})` : texto;
+}
 
 /**
  * Genera el documento PDF (función interna compartida)
@@ -20,9 +26,10 @@ function generarDocumentoPdf(schedule: GeneratedSchedule, colorScheme: ColorSche
     throw new Error('No hay turnos para exportar en el schedule');
   }
 
+  const config = useConfigStore.getState().config;
   const doc = new jsPDF({ orientation: 'landscape' });
   const nombreMes = MESES[schedule.mes];
-  const titulo = `Turnos de Diáconos - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
+  const titulo = `${config.tituloDocumento} - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
 
   doc.setTextColor(...colorScheme.strong);
   doc.setFontSize(18);
@@ -39,15 +46,15 @@ function generarDocumentoPdf(schedule: GeneratedSchedule, colorScheme: ColorSche
     if (turno.diaSemana === 5) { // Sábado
       return [
         fechaFormateada,
-        `${turno.abre}\n(8:10 AM)`,
+        conHora(turno.abre, config.horaAperturaSabado, '\n'),
         nombresLista,
-        `Abrir y cerrar templo - Recoger ofrendas\n\n${turno.abre}`
+        `${config.textoTareaSabado}\n\n${turno.abre}`
       ];
     } else { // Miércoles u otros
       return [
         fechaFormateada,
         {
-          content: `${turno.abre} (7:40 PM)`,
+          content: conHora(turno.abre, config.horaAperturaMiercoles),
           colSpan: 3,
           styles: { halign: 'center' as const }
         }
@@ -59,10 +66,10 @@ function generarDocumentoPdf(schedule: GeneratedSchedule, colorScheme: ColorSche
   autoTable(doc, {
     startY: 30,
     head: [[
-      'FECHA',
-      'Apertura y cierre del Templo',
-      'Diezmos, Ofrendas y Apoyo en instalaciones del Templo',
-      'Culto Joven (6:10 PM)'
+      config.colFecha,
+      config.colApertura,
+      config.colDiezmos,
+      conHora(config.colCultoJoven, config.horaCultoJoven)
     ]],
     body: tableData,
     theme: 'grid',
@@ -117,9 +124,10 @@ export function descargarPdfTurnos(schedule: GeneratedSchedule, colorScheme: Col
  */
 function generarDocumentoPdfAjustado(schedule: GeneratedSchedule, colorScheme: ColorScheme = DEFAULT_COLOR_SCHEME): jsPDF {
   // Primero generar en tamaño normal para calcular altura
+  const config = useConfigStore.getState().config;
   const tempDoc = new jsPDF({ orientation: 'landscape' });
   const nombreMes = MESES[schedule.mes];
-  const titulo = `Turnos de Diáconos - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
+  const titulo = `${config.tituloDocumento} - ${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} ${schedule.año}`;
 
   const tableData = schedule.turnos.map(turno => {
     const fecha = parseISO(turno.fecha);
@@ -130,21 +138,21 @@ function generarDocumentoPdfAjustado(schedule: GeneratedSchedule, colorScheme: C
     if (turno.diaSemana === 5) {
       return [
         fechaFormateada,
-        `${turno.abre}\n(8:10 AM)`,
+        conHora(turno.abre, config.horaAperturaSabado, '\n'),
         nombresLista,
-        `Abrir y cerrar templo - Recoger ofrendas\n\n${turno.abre}`
+        `${config.textoTareaSabado}\n\n${turno.abre}`
       ];
     } else {
       return [
         fechaFormateada,
-        { content: `${turno.abre} (7:40 PM)`, colSpan: 3, styles: { halign: 'center' as const } }
+        { content: conHora(turno.abre, config.horaAperturaMiercoles), colSpan: 3, styles: { halign: 'center' as const } }
       ];
     }
   });
 
   const tableConfig = {
     startY: 30,
-    head: [['FECHA', 'Apertura y cierre del Templo', 'Diezmos, Ofrendas y Apoyo en instalaciones del Templo', 'Culto Joven (6:10 PM)']],
+    head: [[config.colFecha, config.colApertura, config.colDiezmos, conHora(config.colCultoJoven, config.horaCultoJoven)]],
     body: tableData,
     theme: 'grid' as const,
     headStyles: { fillColor: colorScheme.strong, textColor: 255, fontStyle: 'bold' as const, halign: 'center' as const, valign: 'middle' as const, lineWidth: 0.2, lineColor: [189, 195, 199] as [number, number, number] },
